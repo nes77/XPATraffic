@@ -8,7 +8,7 @@ using namespace xpat::phys;
 using namespace units;
 
 
-xpat::nav::NavPoint::NavPoint(const double& latitude, const double& longitude, const double& elev) noexcept : NavPoint(degrees(latitude), degrees(longitude), feet(elev))
+xpat::nav::NavPoint::NavPoint(const unit_numeric_t& latitude, const unit_numeric_t& longitude, const unit_numeric_t& elev) noexcept : NavPoint(degrees(latitude), degrees(longitude), feet(elev))
 {
 }
 
@@ -17,11 +17,11 @@ xpat::nav::NavPoint::NavPoint(const phys::degrees& latitude, const phys::degrees
 xpat::nav::NavPoint::NavPoint(const NavPoint& nav_point, const phys::feet& elevation) noexcept : NavPoint(nav_point.latitude, nav_point.longitude, elevation) {}
 
 glm::dvec3 xpat::nav::NavPoint::as_euclidean_coord() const {
-    glm::dvec2 base{ this->latitude.convert<units::angle::radians>().to<double>(),
-        this->longitude.convert<units::angle::radians>().to<double>() };
+    glm::dvec2 base{ this->latitude.convert<units::angle::radians>().to<unit_numeric_t>(),
+        this->longitude.convert<units::angle::radians>().to<unit_numeric_t>() };
 
     auto out = glm::euclidean(base);
-    out *= earth_mean_radius.convert<units::length::meters>().to<double>();
+    out *= earth_mean_radius.convert<units::length::meters>().to<unit_numeric_t>();
     return out;
 }
 
@@ -56,7 +56,7 @@ NavPoint xpat::nav::NavPoint::normalize() const noexcept
 NavPoint xpat::nav::NavPoint::lateral_translate(const radians& bearing, const meters& distance) const noexcept
 {
     auto R = WGS84::radius_at_latitude(latitude);
-    radians dist_ratio{(distance / R).to<double>()};
+    radians dist_ratio{(distance / R).to<unit_numeric_t>()};
     auto lat_sin = math::sin(latitude);
     auto lat_cos = math::cos(latitude);
     auto distrat_cos = math::cos(dist_ratio);
@@ -80,13 +80,13 @@ nautical_miles NavPoint::haversine_distance(const NavPoint& other) const noexcep
     degrees delta_lat = other.latitude - this->latitude;
     degrees delta_lon = other.longitude - this->longitude;
 
-    dimensionless::scalar_t a = math::cpow<2>(math::sin(delta_lat / 2.0)) +
-        (math::cpow<2>(math::sin(delta_lon / 2.0)) *
+    dimensionless::scalar_t a = math::cpow<2>(math::sin(delta_lat / 2.0f)) +
+        (math::cpow<2>(math::sin(delta_lon / 2.0f)) *
             math::cos(other.latitude) * math::cos(this->latitude));
 
-    angle::radian_t c = 2.0 * math::atan2(math::sqrt(a), math::sqrt(1.0 - a));
+    angle::radian_t c = 2.0f * math::atan2(math::sqrt(a), math::sqrt(1.0f - a));
 
-    meters dist = R_e * c.to<double>();
+    meters dist = R_e * c.to<unit_numeric_t>();
 
     return dist;
 }
@@ -95,11 +95,11 @@ nautical_miles NavPoint::haversine_distance(const NavPoint& other) const noexcep
 std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPoint& that, unsigned iteration_limit, const radians& precision) const noexcept
 {
     radians delta_lon(that.longitude - this->longitude);
-    auto tanU1 = (1.0 - WGS84::flattening) * math::tan(this->latitude);
-    auto cosU1 = 1.0 / math::sqrt(1.0 + math::cpow<2>(tanU1));
+    auto tanU1 = (1.0f - WGS84::flattening) * math::tan(this->latitude);
+    auto cosU1 = 1.0f / math::sqrt(1.0f + math::cpow<2>(tanU1));
     auto sinU1 = tanU1 * cosU1;
-    auto tanU2 = (1.0 - WGS84::flattening) * math::tan(that.latitude);
-    auto cosU2 = 1.0 / math::sqrt(1.0 + math::cpow<2>(tanU2));
+    auto tanU2 = (1.0f - WGS84::flattening) * math::tan(that.latitude);
+    auto cosU2 = 1.0f / math::sqrt(1.0f + math::cpow<2>(tanU2));
     auto sinU2 = tanU2 * cosU2;
 
     radians lambda, prev_lambda;
@@ -111,23 +111,23 @@ std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPo
         auto cos_lam = math::cos(lambda);
         auto sin_sqsigma = math::cpow<2>(cosU2 * sin_lam) + math::cpow<2>(cosU1 * sinU2 - sinU1 * cosU2 * cos_lam);
         sin_sigma = math::sqrt(sin_sqsigma);
-        if (sin_sigma.to<double>() == 0.0) {
+        if (sin_sigma.to<unit_numeric_t>() == 0.0f) {
             return miles(0);
         }
 
         cos_sigma = sinU1 * sinU2 + cosU1 * cosU2 * cos_lam;
-        sigma = dimensionless::scalar_t(math::atan2(sin_sigma, cos_sigma).to<double>());
+        sigma = dimensionless::scalar_t(math::atan2(sin_sigma, cos_sigma).to<unit_numeric_t>());
         auto sin_alpha = cosU1 * cosU2 * sin_lam / sin_sigma;
         cos_sqalpha = 1 - math::cpow<2>(sin_sigma);
-        cos_2sigmaM = cos_sigma - 2.0 * sinU1 * sinU2 / cos_sqalpha;
+        cos_2sigmaM = cos_sigma - 2.0f * sinU1 * sinU2 / cos_sqalpha;
 
-        if (std::isnan(cos_2sigmaM.to<double>())) {
-            cos_2sigmaM = decltype(cos_2sigmaM)(0.0);
+        if (std::isnan(cos_2sigmaM.to<unit_numeric_t>())) {
+            cos_2sigmaM = decltype(cos_2sigmaM)(0.0f);
         }
 
-        auto C = WGS84::flattening / 16.0 * cos_sqalpha * (4.0 + WGS84::flattening * (4.0 - 3.0 * cos_sqalpha));
+        auto C = WGS84::flattening / 16.0f * cos_sqalpha * (4.0f + WGS84::flattening * (4.0f - 3.0f * cos_sqalpha));
         prev_lambda = lambda;
-        lambda = delta_lon + radians(((1.0 - C) * WGS84::flattening * sin_alpha * (sigma + C * sin_sigma * (cos_2sigmaM + C * cos_sigma * (-1.0 + 2.0 * math::cpow<2>(cos_2sigmaM))))).to<double>());
+        lambda = delta_lon + radians(((1.0f - C) * WGS84::flattening * sin_alpha * (sigma + C * sin_sigma * (cos_2sigmaM + C * cos_sigma * (-1.0f + 2.0f * math::cpow<2>(cos_2sigmaM))))).to<unit_numeric_t>());
 
         iteration_limit--;
     } while (math::fabs(lambda - prev_lambda) > precision && iteration_limit > 0);
@@ -137,9 +137,9 @@ std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPo
     }
 
     auto u_sq = cos_sqalpha * (math::cpow<2>(WGS84::equatorial_radius) - math::cpow<2>(WGS84::polar_radius)) / (math::cpow<2>(WGS84::polar_radius));
-    auto A = 1.0 + u_sq / 16384.0 * (4096.0 + u_sq * (-768.0 + u_sq * (320 - 175 * u_sq)));
-    auto B = u_sq / 1024.0 * (256.0 + u_sq * (-128.0 + u_sq * (74 - 47 * u_sq)));
-    auto delta_sigma = B * sin_sigma * (cos_2sigmaM + B / 4.0 * (cos_sigma * (-1.0 + 2.0 * math::cpow<2>(cos_2sigmaM)) - B / 6.0 * cos_2sigmaM * (-3.0 + 4.0 * math::cpow<2>(sin_sigma)) * (-3.0 + 4.0 * math::cpow<2>(cos_2sigmaM))));
+    auto A = 1.0f + u_sq / 16384.0f * (4096.0f + u_sq * (-768.0f + u_sq * (320.0f - 175.0f * u_sq)));
+    auto B = u_sq / 1024.0f * (256.0f + u_sq * (-128.0f + u_sq * (74 - 47 * u_sq)));
+    auto delta_sigma = B * sin_sigma * (cos_2sigmaM + B / 4.0f * (cos_sigma * (-1.0f + 2.0f * math::cpow<2>(cos_2sigmaM)) - B / 6.0f * cos_2sigmaM * (-3.0f + 4.0f * math::cpow<2>(sin_sigma)) * (-3.0f + 4.0f * math::cpow<2>(cos_2sigmaM))));
 
     const nautical_miles s = WGS84::polar_radius * A * (sigma - delta_sigma);
 
@@ -153,13 +153,9 @@ degrees xpat::nav::NavPoint::bearing_to(const NavPoint& that) const noexcept
     auto y = math::cos(that.latitude) * math::sin(delta_lon);
     auto x = math::cos(this->latitude) * math::sin(that.latitude) - math::sin(this->latitude) * math::cos(that.latitude) * math::cos(delta_lon);
 
-    double res = degrees(math::atan2(y, x)).to<double>();
-    res += 360.0;
-    while (res > 359.99999) {
-        res -= 360.0;
-    }
+    degrees res = math::fmod(degrees(math::atan2(y, x)) + polar_math::full_circle, polar_math::full_circle);
 
-    return degrees(res);
+    return res;
 }
 
 degrees xpat::nav::polar_math::normalize_longitude(const phys::degrees& longitude) noexcept {
@@ -188,7 +184,7 @@ NavPoint xpat::nav::polar_math::normalize_nav_point(const NavPoint& nav) noexcep
     }
 
     if (flip) {
-        out.longitude *= -1.0;
+        out.longitude *= -1.0f;
     }
 
     out.latitude = new_lat;

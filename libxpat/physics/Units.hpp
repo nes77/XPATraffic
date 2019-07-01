@@ -34,7 +34,10 @@
 namespace xpat {
     namespace phys {
         // We define some commonly used units so we don't pollute the namespace by using "using namespace units::length, etc"
+        // and flooding it with *every* unit in the library
         // Also, with all the unit tomfoolery in aviation data, having all this stuff defined and handled is nice.
+        using unit_numeric_t = UNIT_LIB_DEFAULT_TYPE;
+
         using degrees = units::angle::degree_t;
         using feet = units::length::foot_t;
         using miles = units::length::mile_t;
@@ -57,6 +60,7 @@ namespace xpat {
         using fpm = units::unit_t<fpm_base>;
 
         using mps2 = units::acceleration::meters_per_second_squared_t; // Most common unit I've found for acceleration values in aviation
+        using scalar_t = units::dimensionless::scalar_t;
 
         template <typename UnitType>
         inline bool units_within(const UnitType& lhs, const UnitType& rhs, const UnitType& epsilon) noexcept {

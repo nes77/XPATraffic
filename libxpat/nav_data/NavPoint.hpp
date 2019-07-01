@@ -42,7 +42,7 @@ namespace xpat {
         namespace WGS84 {
             constexpr phys::meters equatorial_radius(6378137.0); // a.k.a. a
             constexpr phys::meters polar_radius(6356752.314245); // a.k.a. b
-            constexpr double flattening = 1.0 / 298.257223563; // a.k.a. f
+            constexpr phys::unit_numeric_t flattening = phys::unit_numeric_t(1.0 / 298.257223563); // a.k.a. f
 
             phys::meters radius_at_latitude(const phys::radians& latitude) noexcept;
         }
@@ -57,7 +57,7 @@ namespace xpat {
             phys::degrees longitude;
             phys::feet elevation_amsl;
 
-            explicit NavPoint(const double& latitude, const double& longitude, const double& feet = 0.0) noexcept;
+            explicit NavPoint(const phys::unit_numeric_t& latitude, const phys::unit_numeric_t& longitude, const phys::unit_numeric_t& feet = 0.0) noexcept;
             NavPoint(const phys::degrees& latitude, const phys::degrees& longitude, const phys::feet& = phys::feet(0.0)) noexcept;
             NavPoint() noexcept = default;
             NavPoint(const NavPoint&, const phys::feet&) noexcept;

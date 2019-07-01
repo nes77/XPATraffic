@@ -61,6 +61,7 @@ add_library(spdlog STATIC thirdparty/spdlog/spdlog.cpp)
 target_include_directories(spdlog PUBLIC thirdparty/spdlog/include)
 
 target_compile_definitions(spdlog PUBLIC SPDLOG_COMPILED_LIB=1)
+target_compile_definitions(xpatraffic_core PUBLIC UNIT_LIB_DEFAULT_TYPE=float)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/includes")
@@ -77,8 +78,11 @@ add_executable(xpat_bench
 
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)
     set(DEBUG_CXX_FLAGS "-fsanitize=address")
+    target_compile_options(xpatraffic_core PRIVATE "-Wdouble-promotion")
     target_compile_options(xpatraffic_core PUBLIC ${DEBUG_CXX_FLAGS})
 endif()
+
+
 
 target_include_directories(xpatraffic_core SYSTEM PRIVATE "${spdlog_INCLUDE_DIRECTORIES}")
 target_include_directories(xpat_test SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/thirdparty/googletest-1.8.1/include")

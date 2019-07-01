@@ -73,13 +73,13 @@ namespace {
     }
 
     TEST(NavPointTest, Translation) {
-        meters distance{ 102.889 / 20 }; // We want to be preeetty accurate when we're going at approach speeds. This is 200 knots at 20 fps
+        meters distance{ 102.889f / 20.0f }; // We want to be preeetty accurate when we're going at approach speeds. This is 200 knots at 20 fps
         // Good news is, we seem to get more accurate as we slow down!
         NavPoint start{ 86.32056, -1.72972 };
         degrees bearing{ 96.0216667 };
         NavPoint finish = start.lateral_translate(bearing, distance);
 
-        ASSERT_NEAR(distance.to<double>(), start.haversine_distance(finish).convert<units::length::meter>().to<double>(), 0.01); // Correct within a centimeter
+        ASSERT_NEAR(distance.to<double>(), start.vincenty_distance(finish).value().convert<units::length::meter>().to<double>(), 0.1f); // Correct within 10 centimeters
     }
 
     TEST(NavPointTest, Atomicity) {

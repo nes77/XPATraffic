@@ -18,14 +18,14 @@ knots xpat::phys::Windspeed::headwind_component(const degrees& heading) const no
 {
     degrees diff(math::fabs(polar_math::normalize_longitude(heading - this->bearing)));
 
-    return this->magnitude * (math::cos(diff) * -1.0);
+    return this->magnitude * (math::cos(diff) * -1.0f);
 }
 
 knots xpat::phys::Windspeed::crosswind_component(const degrees& heading) const noexcept
 {
     degrees diff(polar_math::normalize_heading(heading - this->bearing));
 
-    return (this->magnitude * (math::sin(diff) * -1.0));
+    return (this->magnitude * (math::sin(diff) * -1.0f));
 }
 
 xpat::phys::AngularVelocity::AngularVelocity(deg_per_s delta_pitch, deg_per_s delta_roll, deg_per_s delta_yaw) noexcept
@@ -131,8 +131,8 @@ void xpat::phys::AircraftPhysics::handle_taxi(const xpat::phys::FlightModel& mod
                 // Is it faster to turn right or left?
                 const degrees diff_to_target = polar_math::normalize_longitude(v0.heading - target_heading);
                 if (diff_to_target > degrees(0)) { // Turn left
-                    const deg_per_s target_turn_speed = max_turn_speed * -1.0;
-                    const deg_per_s2 target_turn_acceleration = AngularMovementModel::taxi_turn_accel * -1.0;
+                    const deg_per_s target_turn_speed = max_turn_speed * -1.0f;
+                    const deg_per_s2 target_turn_acceleration = AngularMovementModel::taxi_turn_accel * -1.0f;
                     const deg_per_s turn_speed_delta = target_turn_acceleration * elapsed;
                     v1.turn_rate = math::fmax(v0.turn_rate + turn_speed_delta, target_turn_speed);
                 }
@@ -145,7 +145,7 @@ void xpat::phys::AircraftPhysics::handle_taxi(const xpat::phys::FlightModel& mod
         else {
             const deg_per_s& target_turn_speed = intent.target_turn_rate();
             if (target_turn_speed < v0.turn_rate) {
-                const deg_per_s2 target_turn_acceleration = AngularMovementModel::taxi_turn_accel * -1.0;
+                const deg_per_s2 target_turn_acceleration = AngularMovementModel::taxi_turn_accel * -1.0f;
                 const deg_per_s turn_speed_delta = target_turn_acceleration * elapsed;
                 v1.turn_rate = math::fmax(v0.turn_rate + turn_speed_delta, target_turn_speed);
             }
