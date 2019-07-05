@@ -48,19 +48,33 @@ namespace xpat {
         using knots = units::velocity::knot_t;
 
         using seconds = units::time::second_t;
+        using minutes = units::time::minute_t;
 
         using deg_per_s = units::angular_velocity::degrees_per_second_t;
+
+        // Minutes of angle / Minutes of arc, which are equivalent units
+        using moa = units::angle::arcminute_t;
+
+        // Seconds of arc; called soa for consistency with minutes of arc and to distinguish from seconds as time
+        using soa = units::angle::arcsecond_t;
+
         using rad_per_s = units::angular_velocity::radians_per_second_t;
 
-        using deg_per_s2 = units::unit_t<units::detail::unit_divide<units::angular_velocity::degrees_per_second, units::time::second> >;
+        using deg_per_s2 = decltype(deg_per_s() / seconds());
 
         using mps = units::velocity::meters_per_second_t; // Aviation is a bit of a mess re: US units mixed with Metric, and so is our code!
         using kmh = units::velocity::kilometers_per_hour_t;
-        using fpm_base = units::detail::unit_divide<units::length::foot, units::time::minute>;
-        using fpm = units::unit_t<fpm_base>;
+
+        // Feet per minute
+        using fpm = decltype(feet() / minutes());
 
         using mps2 = units::acceleration::meters_per_second_squared_t; // Most common unit I've found for acceleration values in aviation
         using scalar_t = units::dimensionless::scalar_t;
+
+        namespace constants {
+            // Standard gravitational acceleration
+            constexpr mps2 g{ 9.80665 };
+        }
 
         template <typename UnitType>
         inline bool units_within(const UnitType& lhs, const UnitType& rhs, const UnitType& epsilon) noexcept {

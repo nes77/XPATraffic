@@ -1,11 +1,44 @@
+/*
+    XPATraffic: FOSS ATC for X-Plane
+    Copyright(C) 2019 Nicholas Samson
 
+    This program is free software : you can redistribute itand /or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.If not, see < https://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or combining
+    it with the X-Plane SDK by Laminar Research (or a modified version of that
+    library), containing parts covered by the terms of the MIT License, the
+    licensors of this Program grant you additional permission to convey the
+    resulting work.
+    {Corresponding Source for a non-source form of such a combination shall
+    include the source code for the parts of the X-Plane SDK by Laminar Research
+    used as well as that of the covered work.}
+*/
 #include <libxpat/nav_data/NavPoint.hpp>
 #include <glm/geometric.hpp>
 #include <cmath>
+#include <boost/geometry/algorithms/detail/azimuth.hpp>
+#include <boost/geometry/formulas/andoyer_inverse.hpp>
 
 using namespace xpat::nav;
 using namespace xpat::phys;
 using namespace units;
+
+namespace bg = boost::geometry;
+
+const spheroid_type WGS84::spheroid_meters{ WGS84::equatorial_radius.to<unit_numeric_t>(), WGS84::polar_radius.to<unit_numeric_t>() };
 
 
 xpat::nav::NavPoint::NavPoint(const unit_numeric_t& latitude, const unit_numeric_t& longitude, const unit_numeric_t& elev) noexcept : NavPoint(degrees(latitude), degrees(longitude), feet(elev))
@@ -43,7 +76,15 @@ nautical_miles xpat::nav::NavPoint::slant_range(const NavPoint& that) const noex
     return math::sqrt(math::cpow<2>(this->haversine_distance(that)) + math::cpow<2>(this->vertical_distance(that)));
 }
 
-NavPoint xpat::nav::NavPoint::translate(const radians& bearing, const meters& distance, const feet& altitude_change) const noexcept
+NavPoint xpat::nav::NavPoint::move_towards(const NavPoint& that, const meters& distance) const noexcept
+{
+
+    degrees bearing = this->bearing_to(that);
+    return this->lateral_translate(bearing, distance);
+
+}
+
+NavPoint xpat::nav::NavPoint::translate(const degrees& bearing, const meters& distance, const feet& altitude_change) const noexcept
 {
     return NavPoint(this->lateral_translate(bearing, distance), this->elevation_amsl + altitude_change);
 }
@@ -53,109 +94,76 @@ NavPoint xpat::nav::NavPoint::normalize() const noexcept
     return polar_math::normalize_nav_point(*this);
 }
 
-NavPoint xpat::nav::NavPoint::lateral_translate(const radians& bearing, const meters& distance) const noexcept
+NavPoint xpat::nav::NavPoint::lateral_translate(const degrees& bearing, const meters& distance) const noexcept
 {
-    auto R = WGS84::radius_at_latitude(latitude);
-    radians dist_ratio{(distance / R).to<unit_numeric_t>()};
-    auto lat_sin = math::sin(latitude);
-    auto lat_cos = math::cos(latitude);
-    auto distrat_cos = math::cos(dist_ratio);
-    auto distrat_sin = math::sin(dist_ratio);
-    degrees new_lat = math::asin(
-        lat_sin * distrat_cos +
-        lat_cos * distrat_sin * math::cos(bearing)
-    );
-    degrees new_lon = longitude + math::atan2(
-        math::sin(bearing) * distrat_sin * lat_cos,
-        distrat_cos - lat_sin * math::sin(new_lat)
+    //auto R = WGS84::radius_at_latitude(latitude);
+    //radians dist_ratio{(distance / R).to<unit_numeric_t>()};
+    //auto lat_sin = math::sin(latitude);
+    //auto lat_cos = math::cos(latitude);
+    //auto distrat_cos = math::cos(dist_ratio);
+    //auto distrat_sin = math::sin(dist_ratio);
+    //degrees new_lat = math::asin(
+    //    lat_sin * distrat_cos +
+    //    lat_cos * distrat_sin * math::cos(bearing)
+    //);
+    //degrees new_lon = longitude + math::atan2(
+    //    math::sin(bearing) * distrat_sin * lat_cos,
+    //    distrat_cos - lat_sin * math::sin(new_lat)
+    //);
+
+    //return polar_math::normalize_nav_point(NavPoint(new_lat, new_lon));
+    const auto result = bg::strategy::vincenty::direct<phys::unit_numeric_t>::apply(
+        bg::get_as_radian<0>(*this), bg::get_as_radian<1>(*this),
+        distance.to<unit_numeric_t>(),
+        polar_math::normalize_longitude(bearing).convert<radians::unit_type>().to<unit_numeric_t>(),
+        WGS84::spheroid_meters
     );
 
-    return polar_math::normalize_nav_point(NavPoint(new_lat, new_lon));
+    return NavPoint(radians(result.lat2), radians(result.lon2), this->elevation_amsl);
+
 }
+
 
 nautical_miles NavPoint::haversine_distance(const NavPoint& other) const noexcept
 {
     // Use the Haversine formula
+    const bg::strategy::distance::haversine<unit_numeric_t> unit_haversine;
+    const scalar_t unit_dist{ bg::distance(*this, other, unit_haversine) };
 
-    degrees delta_lat = other.latitude - this->latitude;
-    degrees delta_lon = other.longitude - this->longitude;
+    return earth_mean_radius * unit_dist;
 
-    dimensionless::scalar_t a = math::cpow<2>(math::sin(delta_lat / 2.0f)) +
-        (math::cpow<2>(math::sin(delta_lon / 2.0f)) *
-            math::cos(other.latitude) * math::cos(this->latitude));
-
-    angle::radian_t c = 2.0f * math::atan2(math::sqrt(a), math::sqrt(1.0f - a));
-
-    meters dist = R_e * c.to<unit_numeric_t>();
-
-    return dist;
 }
 
 // Based on https://www.movable-type.co.uk/scripts/latlong-vincenty.html
 std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPoint& that, unsigned iteration_limit, const radians& precision) const noexcept
 {
-    radians delta_lon(that.longitude - this->longitude);
-    auto tanU1 = (1.0f - WGS84::flattening) * math::tan(this->latitude);
-    auto cosU1 = 1.0f / math::sqrt(1.0f + math::cpow<2>(tanU1));
-    auto sinU1 = tanU1 * cosU1;
-    auto tanU2 = (1.0f - WGS84::flattening) * math::tan(that.latitude);
-    auto cosU2 = 1.0f / math::sqrt(1.0f + math::cpow<2>(tanU2));
-    auto sinU2 = tanU2 * cosU2;
+    const bg::strategy::distance::vincenty<> strat{ WGS84::spheroid_meters };
+    const meters dist_m{ bg::distance(*this, that, strat) };
 
-    radians lambda, prev_lambda;
-    dimensionless::scalar_t cos_sqalpha, cos_2sigmaM, sin_sigma, cos_sigma, sigma;
-    lambda = delta_lon;
-    do {
-
-        auto sin_lam = math::sin(lambda);
-        auto cos_lam = math::cos(lambda);
-        auto sin_sqsigma = math::cpow<2>(cosU2 * sin_lam) + math::cpow<2>(cosU1 * sinU2 - sinU1 * cosU2 * cos_lam);
-        sin_sigma = math::sqrt(sin_sqsigma);
-        if (sin_sigma.to<unit_numeric_t>() == 0.0f) {
-            return miles(0);
-        }
-
-        cos_sigma = sinU1 * sinU2 + cosU1 * cosU2 * cos_lam;
-        sigma = dimensionless::scalar_t(math::atan2(sin_sigma, cos_sigma).to<unit_numeric_t>());
-        auto sin_alpha = cosU1 * cosU2 * sin_lam / sin_sigma;
-        cos_sqalpha = 1 - math::cpow<2>(sin_sigma);
-        cos_2sigmaM = cos_sigma - 2.0f * sinU1 * sinU2 / cos_sqalpha;
-
-        if (std::isnan(cos_2sigmaM.to<unit_numeric_t>())) {
-            cos_2sigmaM = decltype(cos_2sigmaM)(0.0f);
-        }
-
-        auto C = WGS84::flattening / 16.0f * cos_sqalpha * (4.0f + WGS84::flattening * (4.0f - 3.0f * cos_sqalpha));
-        prev_lambda = lambda;
-        lambda = delta_lon + radians(((1.0f - C) * WGS84::flattening * sin_alpha * (sigma + C * sin_sigma * (cos_2sigmaM + C * cos_sigma * (-1.0f + 2.0f * math::cpow<2>(cos_2sigmaM))))).to<unit_numeric_t>());
-
-        iteration_limit--;
-    } while (math::fabs(lambda - prev_lambda) > precision && iteration_limit > 0);
-    // Rather than fail if we can't converge, we'll default to haversine distance. Not ideal, but less expensive than throwing.
-    if (iteration_limit == 0) {
-        return std::optional<nautical_miles>();
-    }
-
-    auto u_sq = cos_sqalpha * (math::cpow<2>(WGS84::equatorial_radius) - math::cpow<2>(WGS84::polar_radius)) / (math::cpow<2>(WGS84::polar_radius));
-    auto A = 1.0f + u_sq / 16384.0f * (4096.0f + u_sq * (-768.0f + u_sq * (320.0f - 175.0f * u_sq)));
-    auto B = u_sq / 1024.0f * (256.0f + u_sq * (-128.0f + u_sq * (74 - 47 * u_sq)));
-    auto delta_sigma = B * sin_sigma * (cos_2sigmaM + B / 4.0f * (cos_sigma * (-1.0f + 2.0f * math::cpow<2>(cos_2sigmaM)) - B / 6.0f * cos_2sigmaM * (-3.0f + 4.0f * math::cpow<2>(sin_sigma)) * (-3.0f + 4.0f * math::cpow<2>(cos_2sigmaM))));
-
-    const nautical_miles s = WGS84::polar_radius * A * (sigma - delta_sigma);
-
-    return std::make_optional(s);
+    return std::make_optional(nautical_miles(dist_m));
     
+}
+
+nautical_miles xpat::nav::NavPoint::andoyer_distance(const NavPoint&) const noexcept
+{
+    return phys::nautical_miles();
 }
 
 degrees xpat::nav::NavPoint::bearing_to(const NavPoint& that) const noexcept
 {
-    auto delta_lon = that.longitude - this->longitude;
-    auto y = math::cos(that.latitude) * math::sin(delta_lon);
-    auto x = math::cos(this->latitude) * math::sin(that.latitude) - math::sin(this->latitude) * math::cos(that.latitude) * math::cos(delta_lon);
+    //auto delta_lon = that.longitude - this->longitude;
+    //auto y = math::cos(that.latitude) * math::sin(delta_lon);
+    //auto x = math::cos(this->latitude) * math::sin(that.latitude) - math::sin(this->latitude) * math::cos(that.latitude) * math::cos(delta_lon);
 
-    degrees res = math::fmod(degrees(math::atan2(y, x)) + polar_math::full_circle, polar_math::full_circle);
+    //degrees res = math::fmod(degrees(math::atan2(y, x)) + polar_math::full_circle, polar_math::full_circle);
 
-    return res;
+    const radians out{ bg::formula::andoyer_inverse<phys::unit_numeric_t, false, true>::apply(
+        bg::get_as_radian<0>(*this), bg::get_as_radian<1>(*this),
+        bg::get_as_radian<0>(that), bg::get_as_radian<1>(that),
+        WGS84::spheroid_meters
+    ).azimuth };
+
+    return polar_math::normalize_heading(out + polar_math::full_circle);
 }
 
 degrees xpat::nav::polar_math::normalize_longitude(const phys::degrees& longitude) noexcept {

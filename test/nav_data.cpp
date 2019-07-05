@@ -54,8 +54,8 @@ namespace {
     TEST(NavPointTest, Bearing) {
         // KHIO -> KPDX heading 076.93194
         // KPDX -> KHIO heading 257.1836
-        ASSERT_NEAR(76.93194, KHIO.bearing_to(KPDX).to<double>(), 0.01);
-        ASSERT_NEAR(257.1836, KPDX.bearing_to(KHIO).to<double>(), 0.01);
+        ASSERT_NEAR(76.93194, KHIO.bearing_to(KPDX).to<double>(), 0.05);
+        ASSERT_NEAR(257.1836, KPDX.bearing_to(KHIO).to<double>(), 0.05);
         ASSERT_DOUBLE_EQ(KPDX.bearing_to(KHIO).to<double>(), KHIO.bearing_from(KPDX).to<double>());
         ASSERT_DOUBLE_EQ(KHIO.bearing_to(KPDX).to<double>(), KPDX.bearing_from(KHIO).to<double>());
 

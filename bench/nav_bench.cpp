@@ -29,6 +29,17 @@ static void BM_HaversineDistance(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
+static void BM_FloatingAdd(benchmark::State& state) {
+    for (auto _ : state) {
+        state.PauseTiming();
+        auto a = generate_random_np();
+        state.ResumeTiming();
+
+        benchmark::DoNotOptimize(a.latitude() + a.longitude());
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+
 static void BM_VincentyDistance(benchmark::State& state) {
     for (auto _ : state) {
         state.PauseTiming();
@@ -62,7 +73,7 @@ static void BM_Translate(benchmark::State& state) {
         auto bearing = degrees(rand(rand_base));
         state.ResumeTiming();
 
-        benchmark::DoNotOptimize(a.lateral_translate(bearing, dist));
+        benchmark::DoNotOptimize(a.lateral_translate_in_place(bearing, dist));
 
     }
     state.SetItemsProcessed(state.iterations());
@@ -73,3 +84,4 @@ BENCHMARK(BM_HaversineDistance);
 BENCHMARK(BM_VincentyDistance);
 BENCHMARK(BM_EuclideanDistance);
 BENCHMARK(BM_Translate);
+BENCHMARK(BM_FloatingAdd);

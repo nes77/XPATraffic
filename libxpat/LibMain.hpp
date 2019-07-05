@@ -27,3 +27,16 @@
     include the source code for the parts of the X-Plane SDK by Laminar Research
     used as well as that of the covered work.}
 */
+
+#include <thread>
+#include <libxpat/atc/Context.hpp>
+#include <libxpat/physics/Context.hpp>
+#include <libxpat/ux/Context.hpp>
+
+namespace xpat {
+    class XPATContext {
+        std::shared_ptr<phys::PhysicsContext> physics;
+        std::shared_ptr<atc::ATCContext> atc;
+        std::shared_ptr<ux::UXContext> ux;
+    };
+}

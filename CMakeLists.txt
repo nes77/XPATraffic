@@ -49,7 +49,7 @@ set(XPSDK_INCLUDE_DIRS "${XPSDK_DIR}/CHeaders/Widgets" "${XPSDK_DIR}/CHeaders/Wr
 add_library(xplanemp STATIC IMPORTED)
 set_property(TARGET xplanemp PROPERTY IMPORTED_LOCATION "${PROJECT_SOURCE_DIR}/lib/xplanemp.lib")
 
-
+find_package(Boost 1.70.0 REQUIRED)
 
 add_library(xpatraffic_core STATIC 
 	libxpat/LibMain.cpp
@@ -61,7 +61,7 @@ add_library(spdlog STATIC thirdparty/spdlog/spdlog.cpp)
 target_include_directories(spdlog PUBLIC thirdparty/spdlog/include)
 
 target_compile_definitions(spdlog PUBLIC SPDLOG_COMPILED_LIB=1)
-target_compile_definitions(xpatraffic_core PUBLIC UNIT_LIB_DEFAULT_TYPE=float)
+target_compile_definitions(xpatraffic_core PUBLIC UNIT_LIB_DEFAULT_TYPE=double SQLITE_ENABLE_RTREE=1)
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/includes")
@@ -70,10 +70,12 @@ add_executable(xpatraffic XPATraffic/XPATraffic.cpp)
 add_executable(xpat_test 
     test/nav_data.cpp
     test/basic_physics.cpp
+    test/register_string.cpp
 )
 
 add_executable(xpat_bench
     bench/nav_bench.cpp
+    bench/stack_string.cpp
 )
 
 if (CMAKE_BUILD_TYPE MATCHES DEBUG)
@@ -87,8 +89,10 @@ endif()
 target_include_directories(xpatraffic_core SYSTEM PRIVATE "${spdlog_INCLUDE_DIRECTORIES}")
 target_include_directories(xpat_test SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/thirdparty/googletest-1.8.1/include")
 target_include_directories(xpat_bench SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/thirdparty/benchmark-master/include")
+target_include_directories(xpatraffic_core SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
 
 target_compile_definitions(xpat_bench PUBLIC _CRT_SECURE_NO_WARNINGS=1)
+target_compile_definitions(xpat_test PUBLIC _CRT_SECURE_NO_WARNINGS=1)
 
 set_property(TARGET xpatraffic xpat_test xpatraffic_core xpat_bench PROPERTY CXX_STANDARD 17)
 

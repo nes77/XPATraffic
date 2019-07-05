@@ -27,4 +27,11 @@
     used as well as that of the covered work.}
 */
 
-#include <libxpat/LibMain.hpp>
+#pragma once
+namespace xpat {
+    namespace ux {
+        class UXContext {
+
+        };
+    }
+}

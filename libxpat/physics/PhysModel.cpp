@@ -1,10 +1,14 @@
+#include "PhysModel.hpp"
+#include "PhysModel.hpp"
 
 #include <libxpat/physics/PhysModel.hpp>
 #include <utility>
+#include <tuple>
 #include <spdlog/spdlog.h>
 
 using namespace xpat::phys;
 using namespace xpat::nav;
+using namespace xpat;
 using namespace units;
 
 xpat::phys::AngularPosition::AngularPosition(degrees pitch, degrees roll, degrees yaw) noexcept
@@ -163,7 +167,7 @@ void xpat::phys::AircraftPhysics::handle_taxi(const xpat::phys::FlightModel& mod
             v1.airspeed = math::fmin(v0.airspeed + model.acc_mod.max_accel * elapsed, model.ias_mod.max_taxi_speed);
         }
         else if (v0.airspeed > target_speed) {
-            v1.airspeed = math::fmax(v0.airspeed + model.acc_mod.max_decel * elapsed, -model.ias_mod.max_taxi_speed);
+            v1.airspeed = math::fmax(v0.airspeed - model.acc_mod.max_decel * elapsed, -model.ias_mod.max_taxi_speed);
         }
         else {
             v1.airspeed = v0.airspeed;
@@ -179,6 +183,7 @@ Our goal is to accelerate. Anything more complex is handled elsewhere.
 void xpat::phys::AircraftPhysics::handle_takeoff(const xpat::phys::FlightModel& model, const xpat::phys::FlightIntent& intent, const Windspeed& wind, const xpat::phys::seconds& elapsed, xpat::phys::Velocity& v1) const noexcept
 {
     const Velocity& v0 = this->vel;
+    v1 = v0;
     v1.turn_rate = deg_per_s(0);
     const knots cur_kias = v0.airspeed + wind.headwind_component(v0.heading);
     v1.airspeed = v0.airspeed;
@@ -199,6 +204,14 @@ void xpat::phys::AircraftPhysics::handle_parked(xpat::phys::Velocity& v1) const 
 
 void xpat::phys::AircraftPhysics::handle_rollout(const xpat::phys::FlightModel& model, const xpat::phys::FlightIntent& intent, const xpat::phys::seconds& elapsed, xpat::phys::Velocity& v1) const noexcept
 {
+    const Velocity& v0 = this->vel;
+    v1 = this->vel;
+    v1.angular_velocity = AngularVelocity();
+    v1.turn_rate = deg_per_s(0);
+    const knots cur_kias = v0.airspeed;
+    if (cur_kias >= intent.target_kias) {
+        v1.airspeed -= model.acc_mod.max_decel * elapsed;
+    }
 }
 
 void xpat::phys::AircraftPhysics::handle_flare(const xpat::phys::FlightModel& model, const xpat::phys::FlightIntent& intent, const Windspeed& wind, const xpat::phys::seconds& elapsed, xpat::phys::Velocity& v1) const noexcept
@@ -213,6 +226,20 @@ void xpat::phys::AircraftPhysics::handle_flare(const xpat::phys::FlightModel& mo
 void xpat::phys::AircraftPhysics::handle_airborne(const xpat::phys::FlightModel& model, const xpat::phys::FlightIntent& intent, const Windspeed& wind, const xpat::phys::seconds& elapsed, xpat::phys::Velocity& v1) const noexcept
 {
     // Airborne handling is pretty similar for most phases of flight. The only real difference is our performance limits.
+    const auto& [ias_limit, vsi_limit] = model.phase_limit(intent.cur_phase);
+
+    // First let's figure out our new airspeed
+    switch (intent.cur_phase) {
+    case FlightPhase::APPROACH: {
+
+    } break;
+    default: {
+
+    } break;
+
+    }
+
+
 }
 
 xpat::phys::FlightIntent::FlightIntent(FlightPhase phase, feet intend_alt, knots intend_speed, const std::variant<degrees, deg_per_s>& heading_variant) noexcept
@@ -243,8 +270,8 @@ const deg_per_s& xpat::phys::FlightIntent::target_turn_rate() const noexcept
     }
 }
 
-xpat::phys::VerticalSpeedModel::VerticalSpeedModel(fpm vsi_init_climb, fpm vsi_climb, fpm vsi_cruise_climb, fpm vsi_cruise_descent, fpm vsi_descent, fpm vsi_approach) noexcept
-    : vsi_init_climb(vsi_init_climb), vsi_climb(vsi_climb), vsi_cruise_climb(vsi_cruise_climb), vsi_cruise_descent(vsi_cruise_descent), vsi_descent(vsi_descent), vsi_approach(vsi_approach)
+xpat::phys::VerticalSpeedModel::VerticalSpeedModel(fpm vsi_init_climb, fpm vsi_climb, fpm vsi_cruise, fpm vsi_descent, fpm vsi_approach) noexcept
+    : vsi_init_climb(math::abs(vsi_init_climb)), vsi_climb(math::abs(vsi_climb)), vsi_cruise(math::abs(vsi_cruise)), vsi_descent(math::abs(vsi_descent)), vsi_approach(math::abs(vsi_approach))
 {
 }
 
@@ -258,8 +285,22 @@ xpat::phys::AngularMovementModel::AngularMovementModel(degrees max_bank, deg_per
 {
 }
 
+degrees xpat::phys::AngularMovementModel::bank_required(const knots& tas, const deg_per_s& turn_rate) noexcept
+{
+    const nautical_miles radius = AngularMovementModel::turn_radius(tas, turn_rate);
+    const scalar_t tan_phi = math::cpow<2>(tas) / (AngularMovementModel::radial_conversion_constant2 * radius);
+    return math::atan(tan_phi);
+}
+
+// http://www.aerospaceweb.org/question/performance/q0146.shtml
+degrees xpat::phys::AngularMovementModel::bank_required(const knots& tas, const nautical_miles& turn_radius) noexcept
+{
+    const scalar_t tan_phi = math::cpow<2>(tas) / (phys::constants::g * turn_radius);
+    return math::atan(tan_phi);
+}
+
 xpat::phys::AccelerationModel::AccelerationModel(mps2 vsi_accel, mps2 max_accel, mps2 max_decel) noexcept
-    : vsi_accel(vsi_accel), max_accel(max_accel), max_decel(max_decel)
+    : vsi_accel(math::abs(vsi_accel)), max_accel(math::abs(max_accel)), max_decel(math::abs(max_decel))
 {
 }
 

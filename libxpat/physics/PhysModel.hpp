@@ -34,6 +34,7 @@
 #include <utility>
 #include <variant>
 #include <atomic>
+#include <tuple>
 #include <type_traits>
 #include <libxpat/macros.hpp>
 #include <libxpat/physics/Units.hpp>
@@ -88,16 +89,15 @@ namespace xpat {
 
         struct VerticalSpeedModel {
 
-            static constexpr fpm vsi_landing{ -150 };
+            static constexpr fpm vsi_landing{ 150 };
 
             fpm vsi_init_climb;
             fpm vsi_climb;
-            fpm vsi_cruise_climb;
-            fpm vsi_cruise_descent;
+            fpm vsi_cruise;
             fpm vsi_descent;
             fpm vsi_approach;
 
-            VerticalSpeedModel(fpm vsi_init_climb, fpm vsi_climb, fpm vsi_cruise_climb, fpm vsi_cruise_descent, fpm vsi_descent, fpm vsi_approach) noexcept;
+            VerticalSpeedModel(fpm vsi_init_climb, fpm vsi_climb, fpm vsi_cruise, fpm vsi_descent, fpm vsi_approach) noexcept;
             VerticalSpeedModel() noexcept = default;
             XPAT_DEFINE_CTORS_DEFAULT_NOEXCEPT(VerticalSpeedModel);
 
@@ -138,12 +138,24 @@ namespace xpat {
             inline void set_air_turn_rate(const seconds& turn_period = seconds(120)) noexcept {
                 this->max_air_turn_rate = nav::polar_math::full_circle / turn_period;
             }
+
+            // These units are incredibly obnoxious
+            static constexpr auto radial_conversion_constant1 = decltype(scalar_t() / degrees()){ 20 * units::constants::detail::PI_VAL }; // deg^-1
+            static constexpr auto radial_conversion_constant2 = phys::constants::g.convert<decltype(knots() * knots() / feet())::unit_type>(); // kt^2 / ft
+
+            static degrees bank_required(const knots& tas, const deg_per_s& turn_rate) noexcept;
+            static degrees bank_required(const knots& tas, const nautical_miles& turn_radius) noexcept;
+            static constexpr nautical_miles turn_radius(const knots& tas, const deg_per_s& turn_rate) noexcept {
+                return tas / (turn_rate * AngularMovementModel::radial_conversion_constant1);
+            }
+            knots max_tas_for_turn(const deg_per_s& turn_rate) const noexcept;
+            knots max_tas_for_turn(const nautical_miles& turn_radius) const noexcept;
         };
 
         struct AccelerationModel {
-            mps2 vsi_accel;
-            mps2 max_accel;
-            mps2 max_decel;
+            mps2 vsi_accel{ 1.9 };
+            mps2 max_accel{ 2.0 };
+            mps2 max_decel{ 2.0 };
 
             AccelerationModel(mps2 vsi_accel, mps2 max_accel, mps2 max_decel) noexcept;
             AccelerationModel() noexcept = default;
@@ -160,6 +172,35 @@ namespace xpat {
             FlightModel(VerticalSpeedModel vsi_mod, AirspeedModel ias_mod, AngularMovementModel ang_mod, AccelerationModel acc_mod) noexcept;
             FlightModel() noexcept = default;
             XPAT_DEFINE_CTORS_DEFAULT_NOEXCEPT(FlightModel);
+
+            constexpr std::tuple<knots, fpm> phase_limit(const FlightPhase phase) const noexcept {
+                switch (phase) {
+                case FlightPhase::APPROACH:
+                    return std::make_tuple(ias_mod.v_approach_min, vsi_mod.vsi_approach);
+                case FlightPhase::CLIMB:
+                    return std::make_tuple(ias_mod.v_climb, vsi_mod.vsi_climb);
+                case FlightPhase::CRUISE:
+                    return std::make_tuple(ias_mod.v_cruise, vsi_mod.vsi_cruise);
+                case FlightPhase::DESCENT:
+                    return std::make_tuple(ias_mod.v_descent, vsi_mod.vsi_descent);
+                case FlightPhase::FINAL:
+                    return std::make_tuple(ias_mod.v_ref, vsi_mod.vsi_approach);
+                case FlightPhase::FLARE:
+                    return std::make_tuple(ias_mod.v_ref, vsi_mod.vsi_landing);
+                case FlightPhase::INIT_CLIMB:
+                    return std::make_tuple(ias_mod.v_init_climb, vsi_mod.vsi_init_climb);
+                case FlightPhase::INIT_DESCENT:
+                    return std::make_tuple(ias_mod.v_init_descent, vsi_mod.vsi_descent);
+                case FlightPhase::PARKED:
+                    return std::make_tuple(knots(0), fpm(0));
+                case FlightPhase::ROLLOUT:
+                    return std::make_tuple(ias_mod.v_rot, fpm(0));
+                case FlightPhase::TAKEOFF:
+                    return std::make_tuple(ias_mod.v_rot, fpm(0));
+                case FlightPhase::TAXI:
+                    return std::make_tuple(ias_mod.max_taxi_speed, fpm(0));
+                }
+            }
 
         };
         
@@ -277,7 +318,5 @@ namespace xpat {
         namespace {
             static_assert(traits::atomic_well_formed_v<AircraftPhysics>);
         }
-        
-
     }
 }

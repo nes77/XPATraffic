@@ -35,19 +35,24 @@
 #include <glm/gtx/polar_coordinates.hpp>
 #include <libxpat/physics/Units.hpp>
 #include <libxpat/macros.hpp>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/register/point.hpp>
+#include <boost/geometry/srs/spheroid.hpp>
 
 namespace xpat {
     namespace nav {
 
+        using spheroid_type = boost::geometry::srs::spheroid<phys::unit_numeric_t>;
+
         namespace WGS84 {
-            constexpr phys::meters equatorial_radius(6378137.0); // a.k.a. a
-            constexpr phys::meters polar_radius(6356752.314245); // a.k.a. b
-            constexpr phys::unit_numeric_t flattening = phys::unit_numeric_t(1.0 / 298.257223563); // a.k.a. f
+            constexpr const phys::meters equatorial_radius(6378137.0); // a.k.a. a
+            constexpr const phys::meters polar_radius(6356752.314245); // a.k.a. b
+            constexpr const phys::unit_numeric_t flattening = phys::unit_numeric_t(1.0 / 298.257223563); // a.k.a. f
+
+            extern const spheroid_type spheroid_meters;
 
             phys::meters radius_at_latitude(const phys::radians& latitude) noexcept;
         }
-
-        
 
         constexpr phys::kilometers earth_mean_radius(6371);
         constexpr phys::kilometers R_e(earth_mean_radius);
@@ -65,6 +70,7 @@ namespace xpat {
 
             phys::nautical_miles haversine_distance(const NavPoint&) const noexcept;
             std::optional<phys::nautical_miles> vincenty_distance(const NavPoint& that, unsigned iteration_limit = 100, const phys::radians& precision = phys::radians(1E-12)) const noexcept;
+            phys::nautical_miles andoyer_distance(const NavPoint&) const noexcept;
             // Returns true bearing
             phys::degrees bearing_to(const NavPoint&) const noexcept;
             // Returns true bearing
@@ -72,14 +78,14 @@ namespace xpat {
                 return that.bearing_to(*this);
             }
 
-            NavPoint lateral_translate(const phys::radians& bearing, const phys::meters& distance) const noexcept;
-            inline NavPoint& lateral_translate_in_place(const phys::radians& bearing, const phys::meters& distance) noexcept {
+            NavPoint lateral_translate(const phys::degrees& bearing, const phys::meters& distance) const noexcept;
+            inline NavPoint& lateral_translate_in_place(const phys::degrees& bearing, const phys::meters& distance) noexcept {
                 *this = this->lateral_translate(bearing, distance);
                 return *this;
             }
 
-            NavPoint translate(const phys::radians& bearing, const phys::meters& distance, const phys::feet& altitude_change) const noexcept;
-            inline NavPoint& translate_in_place(const phys::radians& bearing, const phys::meters& distance, const phys::feet& altitude_change) noexcept {
+            NavPoint translate(const phys::degrees& bearing, const phys::meters& distance, const phys::feet& altitude_change) const noexcept;
+            inline NavPoint& translate_in_place(const phys::degrees& bearing, const phys::meters& distance, const phys::feet& altitude_change) noexcept {
                 *this = this->translate(bearing, distance, altitude_change);
                 return *this;
             }
@@ -110,6 +116,24 @@ namespace xpat {
             constexpr bool operator!=(const NavPoint& that) const noexcept {
                 return !(*this == that);
             }
+
+            constexpr phys::unit_numeric_t get_lat_raw() const noexcept {
+                return this->latitude.to<phys::unit_numeric_t>();
+            }
+
+            constexpr phys::unit_numeric_t get_lon_raw() const noexcept {
+                return this->longitude.to<phys::unit_numeric_t>();
+            }
+
+            inline void set_lat_raw(phys::unit_numeric_t val) noexcept {
+                this->latitude = phys::degrees(val);
+            }
+
+            inline void set_lon_raw(phys::unit_numeric_t val) noexcept {
+                this->longitude = phys::degrees(val);
+            }
+
+            NavPoint move_towards(const NavPoint&, const phys::meters&) const noexcept;
         };
 
         namespace polar_math {
@@ -126,5 +150,15 @@ namespace xpat {
             NavPoint normalize_nav_point(const NavPoint& nav) noexcept;
             
         }
+
     }
 }
+
+BOOST_GEOMETRY_REGISTER_POINT_2D_GET_SET(
+    xpat::nav::NavPoint,
+    xpat::phys::unit_numeric_t,
+    boost::geometry::cs::geographic<boost::geometry::degree>,
+    get_lon_raw, get_lat_raw,
+    set_lon_raw,
+    set_lat_raw
+);

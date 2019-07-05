@@ -25,6 +25,25 @@
     {Corresponding Source for a non-source form of such a combination shall
     include the source code for the parts of the X-Plane SDK by Laminar Research
     used as well as that of the covered work.}
+
+    Navigraph.hpp: Datatypes and functionality for parsing Navigraph data.
 */
 
-#include <libxpat/LibMain.hpp>
+#pragma once
+#include <libxpat/data/StackString.hpp>
+
+
+namespace xpat {
+    namespace nav {
+        using identifier_t = data::StackString8;
+
+        struct RadioBeacon {
+
+        };
+
+        struct NavigraphContext {
+            
+        };
+
+    }
+}
