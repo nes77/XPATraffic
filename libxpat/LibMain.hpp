@@ -1,4 +1,3 @@
-#pragma once
 /*
     XPATraffic: FOSS ATC for X-Plane
     Copyright(C) 2019 Nicholas Samson
@@ -23,11 +22,9 @@
     library), containing parts covered by the terms of the MIT License, the
     licensors of this Program grant you additional permission to convey the
     resulting work.
-    {Corresponding Source for a non-source form of such a combination shall
-    include the source code for the parts of the X-Plane SDK by Laminar Research
-    used as well as that of the covered work.}
 */
 
+#pragma once
 #include <thread>
 #include <libxpat/atc/Context.hpp>
 #include <libxpat/physics/Context.hpp>

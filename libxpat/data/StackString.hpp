@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.If not, see < https://www.gnu.org/licenses/ >.
+    along with this program.If not, see < https://www.gnu.org/licenses/>.
 
     Additional permission under GNU GPL version 3 section 7
 
@@ -22,9 +22,6 @@
     library), containing parts covered by the terms of the MIT License, the
     licensors of this Program grant you additional permission to convey the
     resulting work.
-    {Corresponding Source for a non-source form of such a combination shall
-    include the source code for the parts of the X-Plane SDK by Laminar Research
-    used as well as that of the covered work.}
 */
 
 #pragma once
