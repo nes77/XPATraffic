@@ -49,6 +49,7 @@ namespace xpat {
 
         using seconds = units::time::second_t;
         using minutes = units::time::minute_t;
+        using hours = units::time::hour_t;
 
         using deg_per_s = units::angular_velocity::degrees_per_second_t;
 

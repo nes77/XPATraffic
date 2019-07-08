@@ -27,12 +27,11 @@
     used as well as that of the covered work.}
 */
 
-#include "XPATraffic.hpp"
-
-using namespace std;
+#include <XPATraffic/XPATraffic.hpp>
+#include <libxpat/macros.hpp>
+#include <libxpat/Config.hpp>
 
 int main()
 {
-    cout << "Hello CMake." << endl;
-    return 0;
+    std::cout << XPAT_VERSION;
 }

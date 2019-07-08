@@ -26,30 +26,25 @@
     include the source code for the parts of the X-Plane SDK by Laminar Research
     used as well as that of the covered work.}
 */
-#pragma once
-#include <type_traits>
-#define XPAT_DEFINE_CTORS_DEFAULT_NOEXCEPT(clazz) clazz(const clazz&) noexcept = default; \
-    clazz(clazz&&) noexcept = default; \
-    clazz& operator=(const clazz&) noexcept = default; \
-    clazz& operator=(clazz&&) noexcept = default;
 
-#define XPAT_DEFINE_CTORS_DEFAULT(clazz) clazz(const clazz&) = default; \
-    clazz(clazz&&) = default; \
-    clazz& operator=(const clazz&) = default; \
-    clazz& operator=(clazz&&) = default;
+#include <libxpat/Config.hpp>
+#include <gtest/gtest.h>
 
-namespace xpat {
-    namespace traits {
-        template <typename T>
-        struct atomic_well_formed {
-            static constexpr bool value = std::is_trivially_copyable<T>::value &&
-                std::is_move_constructible<T>::value &&
-                std::is_move_assignable<T>::value &&
-                std::is_copy_constructible<T>::value &&
-                std::is_copy_assignable<T>::value;
-        };
+using namespace xpat;
 
-        template <typename T>
-        constexpr bool atomic_well_formed_v = atomic_well_formed<T>::value;
+namespace {
+    TEST(VersionString, BasicFunc) {
+        const Version test_obj(0, 10, 0);
+        const Version parse_obj("0.10.0-alpha");
+
+        ASSERT_EQ(test_obj, parse_obj);
+        ASSERT_STREQ(parse_obj.str().c_str(), "0.10.0");
+
+        const Version release(1, 0, 0);
+
+        ASSERT_GT(release, parse_obj);
+        ASSERT_LT(release, Version(1, 0, 1));
+        ASSERT_GT(release, Version(0, 100, 2));
+
     }
 }

@@ -1,3 +1,33 @@
+/*
+    XPATraffic: FOSS ATC for X-Plane
+    Copyright(C) 2019 Nicholas Samson
+
+    This program is free software : you can redistribute itand /or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.If not, see < https://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or combining
+    it with the X-Plane SDK by Laminar Research (or a modified version of that
+    library), containing parts covered by the terms of the MIT License, the
+    licensors of this Program grant you additional permission to convey the
+    resulting work.
+    {Corresponding Source for a non-source form of such a combination shall
+    include the source code for the parts of the X-Plane SDK by Laminar Research
+    used as well as that of the covered work.}
+*/
+
+#include "PhysModel.hpp"
 #include "PhysModel.hpp"
 #include "PhysModel.hpp"
 
@@ -283,13 +313,6 @@ xpat::phys::AirspeedModel::AirspeedModel(knots v_rot, knots v_init_climb, knots 
 xpat::phys::AngularMovementModel::AngularMovementModel(degrees max_bank, deg_per_s bank_rate, deg_per_s max_taxi_turn_rate, deg_per_s max_air_turn_rate) noexcept
     : max_bank(max_bank), bank_rate(bank_rate), max_taxi_turn_rate(max_taxi_turn_rate), max_air_turn_rate(max_air_turn_rate)
 {
-}
-
-degrees xpat::phys::AngularMovementModel::bank_required(const knots& tas, const deg_per_s& turn_rate) noexcept
-{
-    const nautical_miles radius = AngularMovementModel::turn_radius(tas, turn_rate);
-    const scalar_t tan_phi = math::cpow<2>(tas) / (AngularMovementModel::radial_conversion_constant2 * radius);
-    return math::atan(tan_phi);
 }
 
 // http://www.aerospaceweb.org/question/performance/q0146.shtml

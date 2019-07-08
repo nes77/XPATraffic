@@ -1,3 +1,32 @@
+/*
+    XPATraffic: FOSS ATC for X-Plane
+    Copyright(C) 2019 Nicholas Samson
+
+    This program is free software : you can redistribute itand /or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.If not, see < https://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or combining
+    it with the X-Plane SDK by Laminar Research (or a modified version of that
+    library), containing parts covered by the terms of the MIT License, the
+    licensors of this Program grant you additional permission to convey the
+    resulting work.
+    {Corresponding Source for a non-source form of such a combination shall
+    include the source code for the parts of the X-Plane SDK by Laminar Research
+    used as well as that of the covered work.}
+*/
+
 #include <libxpat/physics/PhysModel.hpp>
 #include <libxpat/physics/Units.hpp>
 #include <units.h>
@@ -52,5 +81,40 @@ namespace {
 
     TEST(Physics, TakeoffRoll) {
         auto a = AircraftPhysics(Position(KPDX_RWY_28L), Velocity(knots(0), degrees(283)));
+    }
+
+    TEST(Physics, BankAngle) {
+        ASSERT_NEAR(
+            AngularMovementModel::bank_required(knots(120.0), feet(2215.0)).to<double>(),
+            30.0,
+            0.1
+        );
+
+        ASSERT_NEAR(
+            AngularMovementModel::turn_radius(knots(120.0), deg_per_s(5.25)).convert<feet::unit_type>().to<double>(),
+            2215.0,
+            10.0
+        );
+
+        ASSERT_NEAR(
+            AngularMovementModel::turn_rate(knots(120.0), feet(2215)).to<double>(),
+            5.25,
+            0.05
+        );
+        auto a = med_jet.ang_mod.max_turn_rate_for_tas(knots(250));
+        std::cout << "Max rate for 250 kts turn: " << a << '\n';
+        std::cout << "Bank required: " << AngularMovementModel::bank_required(knots(250), a) << '\n';
+
+        ASSERT_NEAR(AngularMovementModel::bank_required(knots(250), a).to<double>(), 30.0, 0.05);
+        a = med_jet.ang_mod.max_turn_rate_for_tas(knots(140));
+        std::cout << "Max rate for 140 kts turn: " << a << '\n';
+        std::cout << "Bank required: " << AngularMovementModel::bank_required(knots(140), a) << '\n';
+        ASSERT_LT(AngularMovementModel::bank_required(knots(140), a).to<double>(), 25.0);
+
+        ASSERT_NEAR(
+            AngularMovementModel::turn_radius(knots(180.0), deg_per_s(3)).to<double>(),
+            0.95,
+            0.01
+        );
     }
 }

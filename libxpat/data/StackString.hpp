@@ -41,10 +41,14 @@
 
 namespace xpat {
     namespace data {
+        // Provides a string type that is both constexpr and fits in an x86_64 register
+        // Probably works on big-endian platforms as well, but obviously is not portable between the two
+        // TODO: Replace char with char8_t when C++20 is done
         template<typename IntType>
         class alignas(sizeof(IntType)) StackString {
             static_assert(std::is_integral_v<IntType>);
             static_assert(sizeof(IntType) > 1);
+            static_assert(sizeof(char) == 1); // TODO: replace me in C++20
             std::array<char, sizeof(IntType)> _data;
 
             constexpr IntType* const as_int_ptr() noexcept {
@@ -62,16 +66,20 @@ namespace xpat {
                 *this->as_int_ptr() = IntType(0);
             }
 
-            inline StackString(const char* inp) noexcept : StackString() {
-                std::string_view v{ inp };
-                _data.back() = '\0'; // All strings need to be null terminated, and strncpy_s has some funky behavior on Windows where it copies garbage after the nul terminator
+            template<std::size_t csize>
+            constexpr StackString(const char (&inp)[csize]) noexcept : StackString() {
+                auto lim = std::min(StackString::size, csize);
+                for (std::size_t i = 0; i < lim; i++) {
+                    _data[i] = inp[i];
+                }
+                _data.back() = '\0'; // Ensures the string is null terminated
             }
 
             inline StackString(const char* inp, std::size_t count) noexcept : StackString() {
                 std::copy_n(inp, std::min(count, StackString::size - 1), _data.data());
             }
 
-            inline StackString(const std::string_view& view) noexcept : StackString(view.data()) {}
+            inline StackString(const std::string& view) noexcept : StackString(view.data(), view.size()) {}
 
             XPAT_DEFINE_CTORS_DEFAULT_NOEXCEPT(StackString);
             
@@ -104,17 +112,17 @@ namespace xpat {
 
         };
 
-        // Can store 3 characters
+        // Can store 3 characters + null terminator
         using StackString4 = StackString<uint32_t>;
 
-        // Can store 7 characters
+        // Can store 7 characters + null terminator
         using StackString8 = StackString<uint64_t>;
     }
 }
 
 namespace std {
     template <typename IntType> struct hash< xpat::data::StackString<IntType> > {
-        std::size_t operator()(const xpat::data::StackString<IntType>& ss) {
+        inline std::size_t operator()(const xpat::data::StackString<IntType>& ss) {
             if constexpr (sizeof(IntType) <= sizeof(std::size_t)) {
                 return ss.as_integer();
             }
@@ -128,7 +136,7 @@ namespace std {
 
 
     template <typename IntType>
-    ostream& operator<< (ostream& out, const xpat::data::StackString<IntType>& ss) {
+    inline ostream& operator<< (ostream& out, const xpat::data::StackString<IntType>& ss) {
         return out << ss.str_view();
     }
 }

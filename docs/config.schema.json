@@ -1,0 +1,24 @@
+{
+    "$id": "http://raw.githubusercontent.com/nes77/XPATraffic/tree/master/docs/config.schema.json",
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "description": "A config object for the XPATraffic library",
+    "title": "XPATraffic Configuration Object",
+    "type": "object",
+    "properties": {
+        "version": {
+            "$id": "#/properties/version",
+            "type": "string",
+            "title": "XPATraffic config version string",
+            "pattern": "^(\\d+)\\.(\\d+)\\.(\\d+)(\\-.+)?$"
+        },
+        "xplane_base_dir": {
+            "$id": "#/properties/xplane_base_dir",
+            "type": "string",
+            "title": "Absolute path to directory containing X-Plane 11 executable"
+        }
+    },
+    "required": [
+        "version",
+        "xplane_base_dir"
+    ]
+}

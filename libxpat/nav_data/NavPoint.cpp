@@ -96,22 +96,6 @@ NavPoint xpat::nav::NavPoint::normalize() const noexcept
 
 NavPoint xpat::nav::NavPoint::lateral_translate(const degrees& bearing, const meters& distance) const noexcept
 {
-    //auto R = WGS84::radius_at_latitude(latitude);
-    //radians dist_ratio{(distance / R).to<unit_numeric_t>()};
-    //auto lat_sin = math::sin(latitude);
-    //auto lat_cos = math::cos(latitude);
-    //auto distrat_cos = math::cos(dist_ratio);
-    //auto distrat_sin = math::sin(dist_ratio);
-    //degrees new_lat = math::asin(
-    //    lat_sin * distrat_cos +
-    //    lat_cos * distrat_sin * math::cos(bearing)
-    //);
-    //degrees new_lon = longitude + math::atan2(
-    //    math::sin(bearing) * distrat_sin * lat_cos,
-    //    distrat_cos - lat_sin * math::sin(new_lat)
-    //);
-
-    //return polar_math::normalize_nav_point(NavPoint(new_lat, new_lon));
     const auto result = bg::strategy::vincenty::direct<phys::unit_numeric_t>::apply(
         bg::get_as_radian<0>(*this), bg::get_as_radian<1>(*this),
         distance.to<unit_numeric_t>(),
@@ -126,7 +110,6 @@ NavPoint xpat::nav::NavPoint::lateral_translate(const degrees& bearing, const me
 
 nautical_miles NavPoint::haversine_distance(const NavPoint& other) const noexcept
 {
-    // Use the Haversine formula
     const bg::strategy::distance::haversine<unit_numeric_t> unit_haversine;
     const scalar_t unit_dist{ bg::distance(*this, other, unit_haversine) };
 
@@ -134,7 +117,6 @@ nautical_miles NavPoint::haversine_distance(const NavPoint& other) const noexcep
 
 }
 
-// Based on https://www.movable-type.co.uk/scripts/latlong-vincenty.html
 std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPoint& that, unsigned iteration_limit, const radians& precision) const noexcept
 {
     const bg::strategy::distance::vincenty<> strat{ WGS84::spheroid_meters };
@@ -144,19 +126,16 @@ std::optional<nautical_miles> xpat::nav::NavPoint::vincenty_distance(const NavPo
     
 }
 
-nautical_miles xpat::nav::NavPoint::andoyer_distance(const NavPoint&) const noexcept
+nautical_miles xpat::nav::NavPoint::andoyer_distance(const NavPoint& that) const noexcept
 {
-    return phys::nautical_miles();
+    const bg::strategy::distance::andoyer<> strat{ WGS84::spheroid_meters };
+    const meters dist_m{ bg::distance(*this, that, strat) };
+
+    return dist_m;
 }
 
 degrees xpat::nav::NavPoint::bearing_to(const NavPoint& that) const noexcept
 {
-    //auto delta_lon = that.longitude - this->longitude;
-    //auto y = math::cos(that.latitude) * math::sin(delta_lon);
-    //auto x = math::cos(this->latitude) * math::sin(that.latitude) - math::sin(this->latitude) * math::cos(that.latitude) * math::cos(delta_lon);
-
-    //degrees res = math::fmod(degrees(math::atan2(y, x)) + polar_math::full_circle, polar_math::full_circle);
-
     const radians out{ bg::formula::andoyer_inverse<phys::unit_numeric_t, false, true>::apply(
         bg::get_as_radian<0>(*this), bg::get_as_radian<1>(*this),
         bg::get_as_radian<0>(that), bg::get_as_radian<1>(that),

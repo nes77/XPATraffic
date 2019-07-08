@@ -140,16 +140,39 @@ namespace xpat {
             }
 
             // These units are incredibly obnoxious
-            static constexpr auto radial_conversion_constant1 = decltype(scalar_t() / degrees()){ 20 * units::constants::detail::PI_VAL }; // deg^-1
-            static constexpr auto radial_conversion_constant2 = phys::constants::g.convert<decltype(knots() * knots() / feet())::unit_type>(); // kt^2 / ft
+            static constexpr auto radial_conversion_constant = decltype(seconds() / (hours() * degrees())){20.0 * units::constants::detail::PI_VAL};
 
-            static degrees bank_required(const knots& tas, const deg_per_s& turn_rate) noexcept;
-            static degrees bank_required(const knots& tas, const nautical_miles& turn_radius) noexcept;
             static constexpr nautical_miles turn_radius(const knots& tas, const deg_per_s& turn_rate) noexcept {
-                return tas / (turn_rate * AngularMovementModel::radial_conversion_constant1);
+                auto denom = turn_rate * AngularMovementModel::radial_conversion_constant;
+                auto out = tas / denom;
+                return out;
             }
-            knots max_tas_for_turn(const deg_per_s& turn_rate) const noexcept;
-            knots max_tas_for_turn(const nautical_miles& turn_radius) const noexcept;
+
+            template <typename AngularVelocityUnit, typename = std::enable_if_t<units::traits::is_angular_velocity_unit<AngularVelocityUnit>::value > >
+            static inline degrees bank_required(const knots& tas, const AngularVelocityUnit& turn_rate) noexcept {
+                const auto tan_phi = (turn_rate * AngularMovementModel::radial_conversion_constant * tas) / phys::constants::g;
+                return units::math::atan(tan_phi);
+            }
+
+            static degrees bank_required(const knots& tas, const nautical_miles& turn_radius) noexcept;            
+
+            template <typename LengthUnit, typename = std::enable_if_t<units::traits::is_length_unit<LengthUnit>::value > >
+            static constexpr deg_per_s turn_rate(const knots& tas, const LengthUnit& radius) noexcept {   
+                auto denom = radius * AngularMovementModel::radial_conversion_constant;
+                auto out = tas / denom;
+                return out;
+            }
+
+            constexpr knots max_tas_for_turn(const nautical_miles& radius) const noexcept {
+                return this->max_air_turn_rate * AngularMovementModel::radial_conversion_constant * radius;
+            }
+
+            inline deg_per_s max_turn_rate_for_tas(const knots& tas) const noexcept {
+                return std::min(
+                    deg_per_s((phys::constants::g / AngularMovementModel::radial_conversion_constant) * units::math::tan(this->max_bank) / tas),
+                    this->max_air_turn_rate
+                    );
+            }
         };
 
         struct AccelerationModel {
